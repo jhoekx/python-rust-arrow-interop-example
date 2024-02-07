@@ -1,21 +1,14 @@
 [package]
 name = "python-arrow-example"
 version = "0.1.0"
-authors = ["Jeroen Hoekx <jeroen@hoekx.be>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Jeroen Hoekx <jeroen@hoekx.be>", "Marco Inacio <m@marcoinacio.com>"]
+edition = "2021"
 
 [lib]
 name = "arrow_example"
 crate-type = ["cdylib"]
 
-[dependencies.pyo3]
-version = "0.13"
-features = ["extension-module"]
-
-[dependencies.arrow]
-version = "3.0.0"
-
-[dependencies.libc]
-version = "0.2"
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module"] }
+arrow = { version = "50.0.0", features = ["ffi"] }
+libc = "0.2"

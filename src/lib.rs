@@ -1,5 +1,3 @@
-//    Copyright 2021 Apache Software Foundation (ASF)
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,13 +12,19 @@
 //
 // Slightly adapted from
 // https://github.com/apache/arrow/commit/1d2b4a55770fa4dbe24959b3b40c745964c3184e
+// which is Copyright 2021 Apache Software Foundation (ASF)
 
 use std::{error, fmt, sync::Arc};
 
-use arrow::{array::{ArrayRef, Int64Array, make_array_from_raw}, compute::kernels, error::ArrowError, ffi};
-use pyo3::{exceptions::PyOSError, prelude::*};
+use arrow::{
+    array::{make_array, Array, ArrayData, ArrayRef, Int64Array},
+    compute::kernels,
+    error::ArrowError,
+    ffi::{from_ffi, to_ffi},
+};
 use libc::uintptr_t;
 use pyo3::wrap_pyfunction;
+use pyo3::{exceptions::PyOSError, prelude::*};
 
 #[derive(Debug)]
 enum PyO3ArrowError {
@@ -60,25 +64,24 @@ impl From<PyO3ArrowError> for PyErr {
 
 fn to_rust(ob: PyObject, py: Python) -> PyResult<ArrayRef> {
     // prepare a pointer to receive the Array struct
-    let (array_pointer, schema_pointer) =
-        ffi::ArrowArray::into_raw(unsafe { ffi::ArrowArray::empty() });
+    let (array, schema) = to_ffi(&ArrayData::new_empty(&arrow::datatypes::DataType::Null))
+        .map_err(PyO3ArrowError::from)?;
+    let array_pointer = &array as *const _ as uintptr_t;
+    let schema_pointer = &schema as *const _ as uintptr_t;
 
     // make the conversion through PyArrow's private API
     // this changes the pointer's memory and is thus unsafe. In particular, `_export_to_c` can go out of bounds
-    ob.call_method1(
-        py,
-        "_export_to_c",
-        (array_pointer as uintptr_t, schema_pointer as uintptr_t),
-    )?;
+    ob.call_method1(py, "_export_to_c", (array_pointer, schema_pointer))?;
 
-    let array = unsafe { make_array_from_raw(array_pointer, schema_pointer) }
-        .map_err(PyO3ArrowError::from)?;
+    let array = unsafe { from_ffi(array, &schema) }.map_err(PyO3ArrowError::from)?;
+    let array = make_array(array);
     Ok(array)
 }
 
 fn to_py(array: ArrayRef, py: Python) -> PyResult<PyObject> {
-    let (array_pointer, schema_pointer) =
-        array.to_raw().map_err(PyO3ArrowError::from)?;
+    let (array, schema) = to_ffi(&array.to_data()).map_err(PyO3ArrowError::from)?;
+    let array_pointer = &array as *const _ as uintptr_t;
+    let schema_pointer = &schema as *const _ as uintptr_t;
 
     let pa = py.import("pyarrow")?;
 
@@ -95,15 +98,10 @@ fn double(array: PyObject, py: Python) -> PyResult<PyObject> {
     let array = to_rust(array, py)?;
 
     // perform some operation
-    let array =
-        array
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .ok_or_else(|| PyO3ArrowError::ArrowError(ArrowError::ParseError(
-                "Expects an int64".to_string(),
-            )))?;
-    let array =
-        kernels::arithmetic::add(&array, &array).map_err(PyO3ArrowError::from)?;
+    let array = array.as_any().downcast_ref::<Int64Array>().ok_or_else(|| {
+        PyO3ArrowError::ArrowError(ArrowError::ParseError("Expects an int64".to_string()))
+    })?;
+    let array = kernels::numeric::add(&array, &array).map_err(PyO3ArrowError::from)?;
     let array = Arc::new(array);
 
     // export
