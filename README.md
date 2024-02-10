@@ -10,34 +10,28 @@ This code is mostly copied from the Apache Arrow [integration test](https://gith
 
 ## Usage
 
-Create a virtualenv:
+Install Python poetry, e.g.:
 
 ```bash
-$ python -m venv venv
-```
-
-Enter the virtualenv:
-
-```bash
-$ source venv/bin/activate
+pip install poetry
 ```
 
 Install Python dependencies:
 
 ```bash
-(venv) $ pip install -r requirements.txt
+poetry install
 ```
 
 Build the Rust Python module:
 
 ```bash
-(venv) $ maturin develop
+poetry run maturin develop
 ```
 
 Run the example:
 
 ```bash
-(venv) $ python run.py
+$ poetry run python run.py
 [
   2,
   4,

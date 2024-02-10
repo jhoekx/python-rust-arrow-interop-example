@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "python-rust-arrow-example"
+version = "0.1.0"
+description = ""
+authors = ["Jeroen Hoekx <jeroen@hoekx.be>", "Marco Inacio <m@marcoinacio.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+maturin = "*"
+numpy = "*"
+pyarrow = "*"
+toml = "*"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
